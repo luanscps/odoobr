@@ -79,13 +79,15 @@ Repositório para instalação completa do **Odoo 18.0** com localização brasi
 - **Docker**: 20.10+
 - **Docker Compose**: 2.0+
 - **Git**: para clonar o repositório
-- **Portainer**: (opcional, mas recomendado)
+- **Portainer**: (opcional, mas recomendado para criar a rede macvlan-dhcp)
 
 ### Rede
-- **macvlan-dhcp**: já configurada em sua infraestrutura
-- **Subnet**: 10.41.10.0/24
-- **IPs disponíveis**: 10.41.10.147, 10.41.10.148, 10.41.10.149 (ou seus valores)
+- **macvlan-dhcp**: rede Docker já configurada em sua infraestrutura (criada via Portainer/CasaOS)
+- **Subnet esperada**: 10.41.10.0/24
+- **IPs para containers**: 10.41.10.147, 10.41.10.148, 10.41.10.149
 - **Gateway**: 10.41.10.1
+
+**⚠️ Importante**: A rede `macvlan-dhcp` deve existir antes de executar o `docker-compose up`. Crie-a via Portainer/CasaOS.
 
 ### Certificados Digitais (para produção)
 - Certificado A1 em formato `.pfx` (padrão ICP-Brasil)
@@ -103,13 +105,7 @@ git clone https://github.com/luanscps/odoobr.git
 cd odoobr
 ```
 
-### 2. Crie os Diretórios Necessários
-
-```bash
-mkdir -p /DATA/AppData/odoobr/{postgres,odoo,config,addons,logs,filestore,sessions,certificates}
-```
-
-### 3. Configure as Variáveis de Ambiente
+### 2. Configure as Variáveis de Ambiente
 
 ```bash
 cp .env.example .env
@@ -119,24 +115,30 @@ vim .env
 
 **Valores essenciais a alterar em `.env`:**
 ```bash
-POSTGRES_PASSWORD=sua_senha_forte_aqui
-ODOO_ADMIN_PASSWORD=sua_senha_admin_forte
-BRASIL_AMBIENTE=homolog  # (homolog para testes, prod para produção)
+POSTGRES_IP=10.41.10.147          # Ou seu IP disponível
+ODOO_IP=10.41.10.148              # Ou seu IP disponível
+ADMINER_IP=10.41.10.149            # Ou seu IP disponível
+POSTGRES_PASSWORD=sua_senha_forte  # ALTERAR
+ODOO_ADMIN_PASSWORD=sua_senha_admin # ALTERAR
+BRASIL_AMBIENTE=homolog            # (homolog para testes, prod para produção)
 ```
 
-### 4. Construa a Imagem Docker
+### 3. Execute o Script de Inicialização
 
 ```bash
-docker-compose build
+chmod +x scripts/init.sh
+./scripts/init.sh
 ```
 
-### 5. Inicie os Containers
+O script fará:
+- ✅ Validar Docker e docker-compose
+- ✅ **Validar que a rede `macvlan-dhcp` existe** (não cria)
+- ✅ Criar diretórios necessários
+- ✅ Clonar repositório OCA l10n-brazil
+- ✅ Construir a imagem Docker
+- ✅ Iniciar containers
 
-```bash
-docker-compose up -d
-```
-
-### 6. Aguarde a Inicialização
+### 4. Aguarde a Inicialização
 
 ```bash
 # Verifique os logs
@@ -145,7 +147,7 @@ docker-compose logs -f odoo
 # Aguarde até ver: "[INFO] odoo.modules.loading: [...] ready"
 ```
 
-### 7. Acesse o Odoo
+### 5. Acesse o Odoo
 
 ```
 http://10.41.10.148:8069
@@ -159,39 +161,45 @@ http://10.41.10.148:8069
 
 ## ⚙️ Configuração Detalhada
 
-### Variáveis de Ambiente Principais
+### Variáveis de Ambiente
 
-| Variável | Descrição | Padrão | Exemplo |
-|----------|-----------|--------|----------|
-| `MACVLAN_INTERFACE` | Interface de rede para macvlan | `eth0` | `eth0` |
-| `MACVLAN_SUBNET` | Subnet da rede macvlan | `10.41.10.0/24` | `10.41.10.0/24` |
-| `POSTGRES_IP` | IP do PostgreSQL | `10.41.10.147` | `10.41.10.147` |
-| `ODOO_IP` | IP do Odoo | `10.41.10.148` | `10.41.10.148` |
-| `POSTGRES_PASSWORD` | Senha do PostgreSQL | - | **ALTERAR** |
-| `ODOO_ADMIN_PASSWORD` | Senha admin do Odoo | - | **ALTERAR** |
-| `BRASIL_AMBIENTE` | Env. SEFAZ | `homolog` | `homolog` ou `prod` |
-| `BRASIL_NFSE_ENABLED` | Habilitar NFSe | `True` | `True` ou `False` |
+| Variável | Descrição | Obrigatório | Padrão |
+|----------|-----------|-------------|--------|
+| `POSTGRES_IP` | IP do PostgreSQL | ✅ | `10.41.10.147` |
+| `ODOO_IP` | IP do Odoo | ✅ | `10.41.10.148` |
+| `ADMINER_IP` | IP do Adminer | ✅ | `10.41.10.149` |
+| `POSTGRES_DB` | Nome do banco de dados | ❌ | `odoo` |
+| `POSTGRES_USER` | Usuário PostgreSQL | ❌ | `odoo` |
+| `POSTGRES_PASSWORD` | Senha PostgreSQL | ✅ | - |
+| `ODOO_ADMIN_PASSWORD` | Senha admin do Odoo | ✅ | - |
+| `ODOO_PORT` | Porta web do Odoo | ❌ | `8069` |
+| `LOG_LEVEL` | Nível de logs | ❌ | `info` |
+| `BRASIL_AMBIENTE` | SEFAZ: homolog ou prod | ❌ | `homolog` |
+| `BRASIL_NFSE_ENABLED` | Habilitar NFSe | ❌ | `True` |
+| `ADMINER_PORT` | Porta do Adminer | ❌ | `9999` |
+
+**⚠️ Obrigatórios (ALTERAR):**
+- `POSTGRES_PASSWORD` - Senha forte para banco de dados
+- `ODOO_ADMIN_PASSWORD` - Senha forte para admin do Odoo
+- `BRASIL_AMBIENTE` - Não alterar até validar em homolog
 
 ### Estrutura de Diretórios
 
 ```
 /DATA/AppData/odoobr/
 ├── postgres/              # Dados do PostgreSQL
-│   ├── pgdata/
-│   └── backup/
-├── odoo/                  # Filestore do Odoo (documentos)
-│   ├── filestore/
-│   └── sessions/
-├── config/                # Arquivos de configuração
+│   ├── pgdata/           # Data files
+│   └── backup/           # Backups do BD
+├── odoo/                  # Dados do Odoo
+├── config/                # Configurações
 │   └── odoo.conf
-├── addons/                # Módulos OCA (clone aqui)
-│   └── l10n-brazil/       # OCA l10n-brazil será clonado
+├── addons/                # Módulos (OCA clonado aqui)
+│   └── l10n-brazil/       # OCA l10n-brazil (clone automático)
 ├── logs/                  # Logs da aplicação
-│   └── odoo.log
-├── filestore/             # Armazenamento de arquivos
+├── filestore/             # Documentos e arquivos
 ├── sessions/              # Sessões de usuário
 └── certificates/          # Certificados digitais A1
-    └── cert.pfx
+    └── seu_certificado.pfx
 ```
 
 ### Comandos Docker Essenciais
@@ -207,8 +215,8 @@ docker-compose logs -f odoo-pg
 # Parar containers
 docker-compose down
 
-# Parar e remover volumes (CUIDADO: deleta dados!)
-docker-compose down -v
+# Reiniciar
+docker-compose restart
 
 # Acessar shell do Odoo
 docker-compose exec odoo bash
@@ -216,11 +224,8 @@ docker-compose exec odoo bash
 # Acessar PostgreSQL
 docker-compose exec odoo-pg psql -U odoo -d odoo
 
-# Reiniciar containers
-docker-compose restart
-
-# Reconstruir imagem
-docker-compose build --no-cache
+# Fazer backup do banco
+docker-compose exec odoo-pg pg_dump -U odoo odoo > backup-$(date +%Y%m%d).sql
 ```
 
 ---
@@ -317,7 +322,7 @@ docker-compose exec odoo pip list | grep -i pytrustnfe
 3. Selecione o arquivo `.pfx` do seu certificado
 4. Insira a senha do certificado
 5. Marque como "Ativo"
-6. Salve
+6. Salve e valide
 
 ### 2. Configurar Dados Fiscais da Empresa
 
@@ -367,18 +372,29 @@ Em .env: BRASIL_AMBIENTE=prod
 
 ## 🔍 Troubleshooting
 
-### Problema: Containers não iniciam
+### Problema: Rede macvlan-dhcp não existe
 
 ```bash
-# Verifique se a rede macvlan-dhcp existe
+# Verifique se a rede existe
 docker network ls | grep macvlan-dhcp
 
-# Se não existir, crie:
+# Se não existir, crie via Portainer/CasaOS ou via CLI:
 docker network create -d macvlan \
   --subnet=10.41.10.0/24 \
   --gateway=10.41.10.1 \
   -o parent=eth0 \
   macvlan-dhcp
+```
+
+### Problema: Containers não iniciam
+
+```bash
+# Verifique logs detalhados
+docker-compose logs
+
+# Verifique se IPs estão disponíveis
+ping 10.41.10.147
+ping 10.41.10.148
 ```
 
 ### Problema: Odoo não conecta ao PostgreSQL
@@ -400,15 +416,6 @@ docker-compose exec odoo odoo -c /etc/odoo/odoo.conf \
 
 # Verifique se o diretório /mnt/extra-addons foi mapeado
 docker-compose exec odoo ls -la /mnt/extra-addons
-```
-
-### Problema: Erro ao instalar l10n_br_fiscal
-
-```bash
-# Verifique dependências Python
-docker-compose exec odoo pip install erpbrasil.base erpbrasil.assinatura
-
-# Reinstale o módulo via UI
 ```
 
 ### Problema: NFe não transmite
@@ -530,12 +537,14 @@ Repositório criado para facilitar implementações de Odoo 18.0 com localizaç�
 
 ## 🎯 Próximas Etapas (Pós-Instalação)
 
-1. ✅ Instale e configure o repositório OCA l10n-brazil
-2. ✅ Configure certificado digital A1
-3. ✅ Preencha dados fiscais da empresa
-4. ✅ Configure operações fiscais
-5. ✅ Teste emissão de NFe em homologação
-6. ✅ Migre para produção após validação
+1. ✅ Crie a rede `macvlan-dhcp` via Portainer/CasaOS (pré-requisito)
+2. ✅ Execute o script `scripts/init.sh`
+3. ✅ Instale e configure os módulos OCA l10n-brazil
+4. ✅ Configure certificado digital A1
+5. ✅ Preencha dados fiscais da empresa
+6. ✅ Configure operações fiscais
+7. ✅ Teste emissão de NFe em homologação
+8. ✅ Migre para produção após validação
 
 ---
 
