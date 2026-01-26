@@ -99,13 +99,6 @@ services:
 networks:
   macvlan-dhcp:
     external: true
-    driver: macvlan
-    driver_opts:
-      parent: ${MACVLAN_INTERFACE:-eth0}
-    ipam:
-      config:
-        - subnet: ${MACVLAN_SUBNET:-10.41.10.0/24}
-          gateway: ${MACVLAN_GATEWAY:-10.41.10.1}
 
 volumes:
   postgres-data:
