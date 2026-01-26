@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  odoo-pg:
+    image: postgres:15-alpine
+    container_name: odoobr-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-odoo}
+      POSTGRES_USER: ${POSTGRES_USER:-odoo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-odoo_secure_password}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - /DATA/AppData/odoobr/postgres:/var/lib/postgresql/data/pgdata
+      - /DATA/AppData/odoobr/postgres-backup:/backup
+    networks:
+      macvlan-dhcp:
+        ipv4_address: ${POSTGRES_IP:-10.41.10.147}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-odoo}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "com.example.description=PostgreSQL Database for Odoo 18.0 Brasil"
+      - "com.example.version=15-alpine"
+
+  odoo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ODOO_VERSION: "18.0"
+    container_name: odoobr-odoo
+    restart: unless-stopped
+    depends_on:
+      odoo-pg:
+        condition: service_healthy
+    environment:
+      # Odoo Core
+      HOST: ${ODOO_DB_HOST:-odoobr-postgres}
+      PORT: ${ODOO_DB_PORT:-5432}
+      USER: ${POSTGRES_USER:-odoo}
+      PASSWORD: ${POSTGRES_PASSWORD:-odoo_secure_password}
+      DB_FILTER: "^${ODOO_DB_NAME:-odoo}.*$"
+      ODOO_ADMIN_PASSWORD: ${ODOO_ADMIN_PASSWORD:-admin_secure_password}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      
+      # Brasil NFe Configuration
+      BRASIL_AMBIENTE: ${BRASIL_AMBIENTE:-homolog}
+      BRASIL_NFSE_ENABLED: ${BRASIL_NFSE_ENABLED:-True}
+      
+    volumes:
+      - /DATA/AppData/odoobr/odoo:/var/lib/odoo
+      - /DATA/AppData/odoobr/config:/etc/odoo
+      - /DATA/AppData/odoobr/addons:/mnt/extra-addons
+      - /DATA/AppData/odoobr/logs:/var/log/odoo
+      - /DATA/AppData/odoobr/filestore:/var/lib/odoo/.local/share/Odoo/filestore
+      - /DATA/AppData/odoobr/sessions:/var/lib/odoo/.local/share/Odoo/sessions
+      - /DATA/AppData/odoobr/certificates:/var/lib/odoo/certificates
+    
+    ports:
+      - "${ODOO_PORT:-8069}:8069"
+      - "${ODOO_LONGPOLL_PORT:-8072}:8072"
+    
+    networks:
+      macvlan-dhcp:
+        ipv4_address: ${ODOO_IP:-10.41.10.148}
+    
+    labels:
+      - "com.example.description=Odoo 18.0 Brasil with NFe"
+      - "com.example.version=18.0"
+      - "com.example.locale=pt_BR"
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8069/web/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Optional: Adminer for database management
+  adminer:
+    image: adminer:latest
+    container_name: odoobr-adminer
+    restart: unless-stopped
+    depends_on:
+      - odoo-pg
+    ports:
+      - "${ADMINER_PORT:-9999}:8080"
+    networks:
+      macvlan-dhcp:
+        ipv4_address: ${ADMINER_IP:-10.41.10.149}
+    labels:
+      - "com.example.description=Database Admin for Odoo PostgreSQL"
+
+networks:
+  macvlan-dhcp:
+    external: true
+    driver: macvlan
+    driver_opts:
+      parent: ${MACVLAN_INTERFACE:-eth0}
+    ipam:
+      config:
+        - subnet: ${MACVLAN_SUBNET:-10.41.10.0/24}
+          gateway: ${MACVLAN_GATEWAY:-10.41.10.1}
+
+volumes:
+  postgres-data:
+    driver: local
+  odoo-data:
+    driver: local
