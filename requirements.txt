@@ -1,0 +1,74 @@
+# Odoo 18.0 Brazilian Localization - NFe and Fiscal Management
+# Last updated: 2026-01-26
+
+# ============================================
+# ERPBrasil Core Libraries
+# ============================================
+erpbrasil.base>=2.3.0        # Brazilian utilities: CPF, CNPJ, IE validation
+erpbrasil.assinatura>=1.2.0  # Digital signature A1 (ICP-Brasil standard)
+
+# ============================================
+# NFe Transmission Libraries
+# ============================================
+pytrustnfe3>=3.1.0           # Primary: NF-e, NFSe, CT-e, MDF-e transmission
+PyNFe>=5.0.0                 # Alternative: NF-e transmission with XSD validation
+
+# ============================================
+# Financial Processing
+# ============================================
+python3-cnab>=2.8.1          # CNAB file processing for banks
+python3-boleto>=3.0.0        # Boleto bancário generation
+pycnab240>=2.8.2             # CNAB 240 format (remessas)
+
+# ============================================
+# Text & Data Processing
+# ============================================
+num2words>=0.5.12            # Numbers to extended text (required in NFe)
+phonennumbers>=8.13.0        # Phone number validation and formatting
+email-validator>=2.0.0       # Email validation
+python-dateutil>=2.8.2       # Date/time utilities
+requests>=2.28.0             # HTTP client library
+xmltodict>=0.13.0            # XML to dict conversion
+
+# ============================================
+# XML and Cryptography
+# ============================================
+lxml>=4.9.0                  # XML processing
+zeep>=4.2.0                  # SOAP client for SEFAZ web services
+pycryptodome>=3.15.0         # Cryptography library
+pyOpenSSL>=23.0.0            # SSL/TLS utilities
+cryptography>=40.0.0         # Cryptographic recipes
+
+# ============================================
+# Brazilian CPF/CNPJ Utilities
+# ============================================
+pycpf>=1.5.0                 # CPF validation and formatting
+
+# ============================================
+# API and Data
+# ============================================
+requests-cache>=1.0.0        # HTTP caching
+urllib3>=1.26.0              # HTTP client
+
+# ============================================
+# Development & Testing (Optional)
+# ============================================
+pytest>=7.0.0                # Unit testing framework
+pytest-cov>=4.0.0            # Code coverage
+black>=23.0.0                # Code formatter
+flake8>=6.0.0                # Code linter
+isort>=5.12.0               # Import sorter
+
+# ============================================
+# Database
+# ============================================
+psycopg2-binary>=2.9.0       # PostgreSQL adapter (already in Odoo)
+
+# ============================================
+# Notes:
+# - ERPBrasil libs handle most Brazilian business logic
+# - PyTrustNFe3 is the standard for SEFAZ transmission
+# - num2words is MANDATORY for NF-e XML generation
+# - All versions pinned for stability
+# - Development packages are optional
+# ============================================
