@@ -24,7 +24,7 @@ echo "Project root: $PROJECT_ROOT"
 echo ""
 
 # Step 1: Check Docker
-echo -e "${YELLOW}[1/8] Checking Docker...${NC}"
+echo -e "${YELLOW}[1/7] Checking Docker...${NC}"
 if ! command -v docker &> /dev/null; then
     echo -e "${RED}Docker is not installed. Please install Docker first.${NC}"
     exit 1
@@ -33,7 +33,7 @@ echo -e "${GREEN}Docker found: $(docker --version)${NC}"
 echo ""
 
 # Step 2: Check Docker Compose
-echo -e "${YELLOW}[2/8] Checking Docker Compose...${NC}"
+echo -e "${YELLOW}[2/7] Checking Docker Compose...${NC}"
 if ! command -v docker-compose &> /dev/null; then
     echo -e "${RED}Docker Compose is not installed. Please install Docker Compose first.${NC}"
     exit 1
@@ -41,29 +41,30 @@ fi
 echo -e "${GREEN}Docker Compose found: $(docker-compose --version)${NC}"
 echo ""
 
-# Step 3: Check macvlan network
-echo -e "${YELLOW}[3/8] Checking macvlan-dhcp network...${NC}"
-if ! docker network ls | grep -q macvlan-dhcp; then
-    echo -e "${YELLOW}Creating macvlan-dhcp network...${NC}"
-    docker network create -d macvlan \
-        --subnet=10.41.10.0/24 \
-        --gateway=10.41.10.1 \
-        -o parent=eth0 \
-        macvlan-dhcp
-    echo -e "${GREEN}Network created successfully${NC}"
-else
-    echo -e "${GREEN}Network already exists${NC}"
+# Step 3: Validate existing macvlan-dhcp network (do NOT create)
+echo -e "${YELLOW}[3/7] Validating existing macvlan-dhcp network...${NC}"
+if ! docker network ls | grep -q "macvlan-dhcp"; then
+    echo -e "${RED}Network 'macvlan-dhcp' was NOT found.${NC}"
+    echo -e "${RED}Please create it manually in your environment (CasaOS/Portainer) before running this script.${NC}"
+    echo -e "${YELLOW}Example (CLI only, adjust to your infra):${NC}"
+    echo "  docker network create -d macvlan \\" 
+    echo "    --subnet=10.41.10.0/24 \\" 
+    echo "    --gateway=10.41.10.1 \\" 
+    echo "    -o parent=eth0 \\" 
+    echo "    macvlan-dhcp"
+    exit 1
 fi
+echo -e "${GREEN}Existing network 'macvlan-dhcp' detected. Using it as external network.${NC}"
 echo ""
 
 # Step 4: Create directories
-echo -e "${YELLOW}[4/8] Creating data directories...${NC}"
+echo -e "${YELLOW}[4/7] Creating data directories...${NC}"
 mkdir -p /DATA/AppData/odoobr/{postgres,odoo,config,addons,logs,filestore,sessions,certificates}
 echo -e "${GREEN}Directories created${NC}"
 echo ""
 
 # Step 5: Setup environment
-echo -e "${YELLOW}[5/8] Setting up environment...${NC}"
+echo -e "${YELLOW}[5/7] Setting up environment...${NC}"
 if [ ! -f "$PROJECT_ROOT/.env" ]; then
     echo -e "${YELLOW}Creating .env file from .env.example...${NC}"
     cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
@@ -81,7 +82,7 @@ fi
 echo ""
 
 # Step 6: Clone OCA l10n-brazil
-echo -e "${YELLOW}[6/8] Preparing OCA l10n-brazil modules...${NC}"
+echo -e "${YELLOW}[6/7] Preparing OCA l10n-brazil modules...${NC}"
 if [ ! -d "/DATA/AppData/odoobr/addons/l10n-brazil" ]; then
     echo -e "${YELLOW}Cloning OCA l10n-brazil repository...${NC}"
     cd /DATA/AppData/odoobr/addons
@@ -93,14 +94,9 @@ fi
 echo ""
 
 # Step 7: Build and start containers
-echo -e "${YELLOW}[7/8] Building Docker image...${NC}"
+echo -e "${YELLOW}[7/7] Building Docker image and starting containers...${NC}"
 cd "$PROJECT_ROOT"
 docker-compose build
-echo -e "${GREEN}Image built successfully${NC}"
-echo ""
-
-# Step 8: Start containers
-echo -e "${YELLOW}[8/8] Starting containers...${NC}"
 docker-compose up -d
 echo -e "${GREEN}Containers started${NC}"
 echo ""
@@ -124,14 +120,14 @@ echo -e "${GREEN}Setup Complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo "Access Odoo at:"
-echo -e "${YELLOW}http://10.41.10.148:8069${NC}"
+echo -e "${YELLOW}http://$ODOO_IP:${ODOO_PORT:-8069}${NC} (or the IP/port configured in .env)"
 echo ""
 echo "Default credentials:"
 echo "  Email: admin"
 echo "  Password: (from ODOO_ADMIN_PASSWORD in .env)"
 echo ""
 echo "Database Manager (Adminer):"
-echo -e "${YELLOW}http://10.41.10.149:9999${NC}"
+echo -e "${YELLOW}http://$ADMINER_IP:${ADMINER_PORT:-9999}${NC}"
 echo ""
 echo "Next steps:"
 echo "  1. Log in to Odoo"
