@@ -2,6 +2,7 @@
 
 # Odoo 18.0 Brasil - Initialization Script
 # This script sets up directories, environment, and starts the containers
+# Assumes macvlan-dhcp network already exists in your CasaOS/Portainer
 
 set -e
 
@@ -24,7 +25,7 @@ echo "Project root: $PROJECT_ROOT"
 echo ""
 
 # Step 1: Check Docker
-echo -e "${YELLOW}[1/7] Checking Docker...${NC}"
+echo -e "${YELLOW}[1/6] Checking Docker...${NC}"
 if ! command -v docker &> /dev/null; then
     echo -e "${RED}Docker is not installed. Please install Docker first.${NC}"
     exit 1
@@ -33,7 +34,7 @@ echo -e "${GREEN}Docker found: $(docker --version)${NC}"
 echo ""
 
 # Step 2: Check Docker Compose
-echo -e "${YELLOW}[2/7] Checking Docker Compose...${NC}"
+echo -e "${YELLOW}[2/6] Checking Docker Compose...${NC}"
 if ! command -v docker-compose &> /dev/null; then
     echo -e "${RED}Docker Compose is not installed. Please install Docker Compose first.${NC}"
     exit 1
@@ -41,35 +42,35 @@ fi
 echo -e "${GREEN}Docker Compose found: $(docker-compose --version)${NC}"
 echo ""
 
-# Step 3: Validate existing macvlan-dhcp network (do NOT create)
-echo -e "${YELLOW}[3/7] Validating existing macvlan-dhcp network...${NC}"
+# Step 3: Validate existing macvlan-dhcp network
+echo -e "${YELLOW}[3/6] Validating macvlan-dhcp network...${NC}"
 if ! docker network ls | grep -q "macvlan-dhcp"; then
-    echo -e "${RED}Network 'macvlan-dhcp' was NOT found.${NC}"
-    echo -e "${RED}Please create it manually in your environment (CasaOS/Portainer) before running this script.${NC}"
-    echo -e "${YELLOW}Example (CLI only, adjust to your infra):${NC}"
-    echo "  docker network create -d macvlan \\" 
-    echo "    --subnet=10.41.10.0/24 \\" 
-    echo "    --gateway=10.41.10.1 \\" 
-    echo "    -o parent=eth0 \\" 
-    echo "    macvlan-dhcp"
+    echo -e "${RED}ERROR: Network 'macvlan-dhcp' not found!${NC}"
+    echo ""
+    echo -e "${YELLOW}Please create this network in your CasaOS/Portainer first:${NC}"
+    echo -e "  1. Open Portainer"
+    echo -e "  2. Go to Networks"
+    echo -e "  3. Create Network with name 'macvlan-dhcp'"
+    echo -e "  4. Configure with your network settings (subnet, gateway, parent interface)"
+    echo ""
     exit 1
 fi
-echo -e "${GREEN}Existing network 'macvlan-dhcp' detected. Using it as external network.${NC}"
+echo -e "${GREEN}Network 'macvlan-dhcp' found and ready${NC}"
 echo ""
 
-# Step 4: Create directories
-echo -e "${YELLOW}[4/7] Creating data directories...${NC}"
+# Step 4: Create data directories
+echo -e "${YELLOW}[4/6] Creating data directories...${NC}"
 mkdir -p /DATA/AppData/odoobr/{postgres,odoo,config,addons,logs,filestore,sessions,certificates}
 echo -e "${GREEN}Directories created${NC}"
 echo ""
 
 # Step 5: Setup environment
-echo -e "${YELLOW}[5/7] Setting up environment...${NC}"
+echo -e "${YELLOW}[5/6] Setting up environment...${NC}"
 if [ ! -f "$PROJECT_ROOT/.env" ]; then
     echo -e "${YELLOW}Creating .env file from .env.example...${NC}"
     cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
     echo -e "${GREEN}.env file created${NC}"
-    echo -e "${YELLOW}⚠ IMPORTANT: Edit .env and change passwords before starting!${NC}"
+    echo -e "${YELLOW}⚠  IMPORTANT: Edit .env and change passwords!${NC}"
     echo ""
     read -p "Do you want to edit .env now? (y/n) " -n 1 -r
     echo
@@ -81,30 +82,33 @@ else
 fi
 echo ""
 
-# Step 6: Clone OCA l10n-brazil
-echo -e "${YELLOW}[6/7] Preparing OCA l10n-brazil modules...${NC}"
+# Step 6: Clone OCA l10n-brazil and start containers
+echo -e "${YELLOW}[6/6] Preparing modules and starting containers...${NC}"
+
+# Clone OCA modules if not exist
 if [ ! -d "/DATA/AppData/odoobr/addons/l10n-brazil" ]; then
     echo -e "${YELLOW}Cloning OCA l10n-brazil repository...${NC}"
+    mkdir -p /DATA/AppData/odoobr/addons
     cd /DATA/AppData/odoobr/addons
     git clone --branch 18.0 https://github.com/OCA/l10n-brazil.git
-    echo -e "${GREEN}OCA modules cloned successfully${NC}"
+    echo -e "${GREEN}OCA modules cloned${NC}"
 else
-    echo -e "${GREEN}OCA modules already cloned${NC}"
+    echo -e "${GREEN}OCA modules already present${NC}"
 fi
-echo ""
 
-# Step 7: Build and start containers
-echo -e "${YELLOW}[7/7] Building Docker image and starting containers...${NC}"
+# Build and start
 cd "$PROJECT_ROOT"
+echo -e "${YELLOW}Building Docker image...${NC}"
 docker-compose build
+echo -e "${YELLOW}Starting containers...${NC}"
 docker-compose up -d
 echo -e "${GREEN}Containers started${NC}"
 echo ""
 
 # Wait for Odoo to be ready
-echo -e "${YELLOW}Waiting for Odoo to initialize (this may take a few minutes)...${NC}"
+echo -e "${YELLOW}Waiting for Odoo to initialize (may take 2-5 minutes)...${NC}"
 for i in {1..60}; do
-    if docker-compose logs odoo 2>/dev/null | grep -q "ready"; then
+    if docker-compose logs odoo 2>/dev/null | grep -q "ready\|loaded"; then
         echo -e "${GREEN}Odoo is ready!${NC}"
         break
     fi
@@ -119,26 +123,32 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Setup Complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
-echo "Access Odoo at:"
-echo -e "${YELLOW}http://$ODOO_IP:${ODOO_PORT:-8069}${NC} (or the IP/port configured in .env)"
+echo -e "${GREEN}✅ Odoo 18.0 Brasil is now running${NC}"
 echo ""
-echo "Default credentials:"
-echo "  Email: admin"
-echo "  Password: (from ODOO_ADMIN_PASSWORD in .env)"
+echo -e "${YELLOW}Access URLs:${NC}"
+echo "  Odoo:    http://10.41.10.148:8069"
+echo "  Adminer: http://10.41.10.149:9999"
 echo ""
-echo "Database Manager (Adminer):"
-echo -e "${YELLOW}http://$ADMINER_IP:${ADMINER_PORT:-9999}${NC}"
+echo -e "${YELLOW}Login Credentials:${NC}"
+echo "  Email:    admin"
+echo "  Password: (check ODOO_ADMIN_PASSWORD in .env)"
 echo ""
-echo "Next steps:"
-echo "  1. Log in to Odoo"
-echo "  2. Install OCA modules: Applications → Update Modules List"
-echo "  3. Search for 'l10n_br' and install modules"
-echo "  4. Configure company fiscal data"
+echo -e "${YELLOW}Next Steps:${NC}"
+echo "  1. Log in to Odoo at http://10.41.10.148:8069"
+echo "  2. Go to Applications → Update Modules List"
+echo "  3. Search for 'l10n_br' and install OCA modules"
+echo "  4. Configure company fiscal data (CNPJ, IE, etc)"
 echo "  5. Upload digital certificate A1"
+echo "  6. See docs/CONFIGURACAO_NFe.md for NFe setup"
 echo ""
-echo "Useful commands:"
-echo "  View logs: docker-compose logs -f odoo"
-echo "  Stop: docker-compose down"
-echo "  Restart: docker-compose restart"
+echo -e "${YELLOW}Useful Commands:${NC}"
+echo "  View logs:     docker-compose logs -f odoo"
+echo "  Stop:          docker-compose down"
+echo "  Restart:       docker-compose restart"
+echo "  Shell access:  docker-compose exec odoo bash"
 echo ""
-echo -e "${YELLOW}For more information, see README.md${NC}"
+echo -e "${YELLOW}Documentation:${NC}"
+echo "  README.md              - Main documentation"
+echo "  docs/CONFIGURACAO_NFe.md - NFe setup guide"
+echo "  docs/REDE_MACVLAN.md     - Network configuration"
+echo ""
