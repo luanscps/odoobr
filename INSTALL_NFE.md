@@ -19,26 +19,34 @@ Este guia cobre a instalação completa dos módulos OCA l10n-brazil e configura
 
 ## 1. Instalação Módulos OCA
 
-### **1.1. Clonar Repositório OCA l10n-brazil**
+### **1.1. Clonar Repositórios OCA Necessários**
+
+⚠️ **IMPORTANTE:** O módulo `l10n_br_fiscal` depende de `uom_alias` que está em outro repositório!
 
 ```bash
 cd /DATA/AppData/odoobr/addons
 
-# Clonar branch 18.0 oficial
+# 1. Clonar l10n-brazil (módulos brasileiros)
 git clone -b 18.0 https://github.com/OCA/l10n-brazil.git
 
-# Ajustar permissões (UID 101 = usuário odoo no container)
-sudo chown -R 101:101 l10n-brazil/
+# 2. Clonar product-attribute (contém uom_alias)
+git clone -b 18.0 https://github.com/OCA/product-attribute.git
 
-# Verificar módulos disponíveis
+# 3. Ajustar permissões (UID 101 = usuário odoo no container)
+sudo chown -R 101:101 l10n-brazil/ product-attribute/
+
+# 4. Verificar módulos disponíveis
 ls -la l10n-brazil/ | grep "l10n_br"
+ls -la product-attribute/uom_alias/
 ```
 
 **Módulos principais clonados:**
+
+**l10n-brazil:**
 ```
 l10n_br_base/                  # Cadastros BR (CPF, CNPJ, IE)
 l10n_br_coa/                   # Plano de contas brasileiro
-l10n_br_fiscal/                # Motor fiscal (impostos)
+l10n_br_fiscal/                # Motor fiscal (impostos) - DEPENDE DE uom_alias
 l10n_br_nfe_spec/              # Schemas NFe 4.0
 l10n_br_fiscal_certificate/    # Certificados digitais
 l10n_br_fiscal_edi/            # Transmissão SEFAZ
@@ -47,7 +55,69 @@ l10n_br_sale/                  # Vendas com fiscal
 l10n_br_purchase/              # Compras com fiscal
 ```
 
-### **1.2. Reiniciar Odoo para Detectar Módulos**
+**product-attribute:**
+```
+uom_alias/                     # Alias de unidades de medida (UN = UND = UNID)
+```
+
+### **1.2. Atualizar odoo.conf com Múltiplos Repositórios**
+
+⚠️ **CRÍTICO:** Odoo precisa saber onde encontrar AMBOS os repositórios!
+
+```bash
+cd /DATA/AppData/odoobr
+
+# Editar odoo.conf
+nano config/odoo.conf
+```
+
+**Atualizar linha `addons_path`:**
+
+```ini
+# Antes (ERRADO - não detecta uom_alias):
+addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons/l10n-brazil,/mnt/extra-addons
+
+# Depois (CORRETO - detecta ambos):
+addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons/l10n-brazil,/mnt/extra-addons/product-attribute,/mnt/extra-addons
+```
+
+**Arquivo completo deve ficar:**
+
+```ini
+[options]
+db_host = odoobr-postgres
+db_port = 5432
+db_user = odoo
+db_password = odoo2026
+list_db = True
+db_filter = .*
+
+http_port = 8069
+longpolling_port = 8072
+proxy_mode = True
+
+# MÚLTIPLOS REPOSITÓRIOS OCA
+addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons/l10n-brazil,/mnt/extra-addons/product-attribute,/mnt/extra-addons
+data_dir = /var/lib/odoo
+
+log_level = info
+log_handler = :INFO
+logfile = /var/log/odoo/odoo.log
+
+admin_passwd = odoo2026
+
+limit_memory_hard = 2684354560
+limit_memory_soft = 2147483648
+limit_request = 8192
+limit_time_cpu = 600
+limit_time_real = 1200
+max_cron_threads = 2
+workers = 0
+
+without_demo = all
+```
+
+### **1.3. Reiniciar Odoo para Detectar Módulos**
 
 ```bash
 cd /DATA/AppData/odoobr
@@ -56,14 +126,14 @@ docker-compose restart odoo
 # Aguardar 10 segundos
 sleep 10
 
-# Verificar se detectou os módulos
-docker-compose logs odoo | grep "l10n-brazil"
+# Verificar se detectou AMBOS os repositórios
+docker-compose logs odoo | grep "addons paths" | tail -n 1
 
 # Deve aparecer:
-# INFO odoo: addons paths: [..., '/mnt/extra-addons/l10n-brazil']
+# INFO odoo: addons paths: [..., '/mnt/extra-addons/l10n-brazil', '/mnt/extra-addons/product-attribute', '/mnt/extra-addons']
 ```
 
-### **1.3. Atualizar Lista de Apps no Odoo**
+### **1.4. Atualizar Lista de Apps no Odoo**
 
 **No navegador (http://SEU_IP:8069):**
 
@@ -73,9 +143,11 @@ docker-compose logs odoo | grep "l10n-brazil"
 4. **Update** (confirmar)
 5. Aguardar ~30 segundos
 
-### **1.4. Instalar Módulos (NESSA ORDEM)**
+### **1.5. Instalar Módulos (NESSA ORDEM)**
 
-**⚠️ IMPORTANTE:** Instale na ordem exata para respeitar dependências!
+⚠️ **IMPORTANTE:** Instale na ordem exata para respeitar dependências!
+
+⚠️ **CRÍTICO:** `uom_alias` deve ser instalado **ANTES** de `l10n_br_fiscal`!
 
 #### **① l10n_br_base** (Base)
 ```
@@ -99,7 +171,23 @@ Buscar: l10n_br_coa
 - Plano de contas brasileiro padrão
 - Estrutura contábil
 
-#### **③ l10n_br_fiscal** (Motor Fiscal) ⚡ CRÍTICO
+#### **③ uom_alias** (Alias de Unidades) ⚠️ OBRIGATÓRIO ANTES DO FISCAL!
+```
+Buscar: uom_alias
+→ Install (~30 segundos)
+```
+
+**O que instala:**
+- Permite criar aliases para unidades de medida
+- Exemplo: UN = UND = UNID = Unidade
+- **DEPENDÊNCIA DO l10n_br_fiscal**
+
+**Por quê é necessário?**
+- NFe exige unidades padronizadas
+- Brasil usa várias formas de escrever mesma unidade
+- uom_alias permite mapear todas para uma só
+
+#### **④ l10n_br_fiscal** (Motor Fiscal) ⚡ CRÍTICO
 ```
 Buscar: l10n_br_fiscal
 → Install (~2-3 minutos)
@@ -112,7 +200,7 @@ Buscar: l10n_br_fiscal
 - Documentos fiscais
 - **ESTE É O MÓDULO PRINCIPAL!**
 
-#### **④ l10n_br_nfe_spec** (Schemas NFe)
+#### **⑤ l10n_br_nfe_spec** (Schemas NFe)
 ```
 Buscar: l10n_br_nfe_spec
 → Install (~30 segundos)
@@ -123,7 +211,7 @@ Buscar: l10n_br_nfe_spec
 - Modelos de dados SEFAZ
 - Validações XML
 
-#### **⑤ l10n_br_fiscal_certificate** (Certificados)
+#### **⑥ l10n_br_fiscal_certificate** (Certificados)
 ```
 Buscar: l10n_br_fiscal_certificate
 → Install (~30 segundos)
@@ -134,7 +222,7 @@ Buscar: l10n_br_fiscal_certificate
 - Suporte certificado A3 (token/smartcard)
 - Gestão validade certificados
 
-#### **⑥ l10n_br_fiscal_edi** (Transmissão SEFAZ) 🚀
+#### **⑦ l10n_br_fiscal_edi** (Transmissão SEFAZ) 🚀
 ```
 Buscar: l10n_br_fiscal_edi
 → Install (~1 minuto)
@@ -147,7 +235,7 @@ Buscar: l10n_br_fiscal_edi
 - Carta de Correção Eletrônica (CCe)
 - Inutilização de numeração
 
-#### **⑦ l10n_br_sale** (Vendas - OPCIONAL)
+#### **⑧ l10n_br_sale** (Vendas - OPCIONAL)
 ```
 Buscar: l10n_br_sale
 → Install (~1 minuto)
@@ -415,6 +503,34 @@ Rejeição 563: Duplicidade de NFe
 
 ## 6. Troubleshooting NFe
 
+### **❌ Erro: ModuleNotFoundError: No module named 'uom_alias'**
+
+**Causa:** Módulo `uom_alias` não foi instalado antes de `l10n_br_fiscal`.
+
+**Solução:**
+```bash
+# 1. Verificar se repositório product-attribute foi clonado
+ls -la /DATA/AppData/odoobr/addons/product-attribute/uom_alias/
+
+# 2. Se não existe, clonar:
+cd /DATA/AppData/odoobr/addons
+git clone -b 18.0 https://github.com/OCA/product-attribute.git
+sudo chown -R 101:101 product-attribute/
+
+# 3. Atualizar odoo.conf (adicionar product-attribute ao addons_path)
+nano /DATA/AppData/odoobr/config/odoo.conf
+# addons_path = ...,/mnt/extra-addons/product-attribute,...
+
+# 4. Reiniciar Odoo
+docker-compose restart odoo
+
+# 5. Update Apps List no navegador
+# 6. Instalar uom_alias
+# 7. Reinstalar l10n_br_fiscal
+```
+
+---
+
 ### **❌ Rejeição 213: CNPJ do emitente inválido**
 
 **Causa:** CNPJ da empresa não está cadastrado na SEFAZ.
@@ -502,7 +618,9 @@ docker-compose up -d
 
 ## 📊 Checklist NFe Funcional
 
-- [ ] Módulos OCA instalados (base, fiscal, nfe_spec, edi, certificate)
+- [ ] Repositórios OCA clonados (l10n-brazil E product-attribute)
+- [ ] odoo.conf atualizado com ambos os caminhos
+- [ ] Módulos OCA instalados na ordem (base, coa, uom_alias, fiscal, nfe_spec, edi, certificate)
 - [ ] Empresa configurada (CNPJ, IE, endereço)
 - [ ] Certificado A1 válido carregado
 - [ ] Operação fiscal criada (CFOP 5.102)
@@ -544,6 +662,7 @@ docker-compose up -d
 - **Repositório:** https://github.com/luanscps/odoobr
 - **Issues:** https://github.com/luanscps/odoobr/issues
 - **OCA l10n-brazil:** https://github.com/OCA/l10n-brazil
+- **OCA product-attribute:** https://github.com/OCA/product-attribute
 - **Fórum Odoo Brasil:** https://www.odoo.com/pt_BR/forum
 - **Manual NFe SEFAZ:** http://www.nfe.fazenda.gov.br/portal/principal.aspx
 
