@@ -23,11 +23,16 @@ longpolling_port = 8072
 proxy_mode = True
 
 # ============================================
-# Paths - IMPORTANTE: Incluir l10n-brazil!
+# Paths - MÚLTIPLOS REPOSITÓRIOS OCA
 # ============================================
-# O caminho /mnt/extra-addons/l10n-brazil é CRÍTICO!
-# Sem ele, os módulos OCA não aparecem em Apps
-addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons/l10n-brazil,/mnt/extra-addons
+# IMPORTANTE: Incluir TODOS os repositórios OCA necessários!
+# Odoo NÃO busca recursivamente em subdiretórios.
+#
+# Repositórios obrigatórios para NFe:
+# - l10n-brazil: Módulos de localização brasileira
+# - product-attribute: Contém uom_alias (dependência do l10n_br_fiscal)
+#
+addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons/l10n-brazil,/mnt/extra-addons/product-attribute,/mnt/extra-addons
 data_dir = /var/lib/odoo
 
 # ============================================
@@ -82,5 +87,6 @@ without_demo = all
 # 3. Para produção, altere admin_passwd e db_password
 # 4. workers=0 para desenvolvimento, >0 para produção
 # 5. list_db=False em produção por segurança
-# 6. O caminho /mnt/extra-addons/l10n-brazil é obrigatório para OCA!
+# 6. Os caminhos l10n-brazil E product-attribute são obrigatórios!
+# 7. Sem product-attribute, l10n_br_fiscal falha (depende de uom_alias)
 # ============================================
