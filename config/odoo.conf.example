@@ -10,7 +10,7 @@ db_password = odoo2026
 # Permite criar/gerenciar databases pela interface web
 list_db = True
 
-# Filtro de databases (. * permite qualquer nome)
+# Filtro de databases (.* permite qualquer nome)
 db_filter = .*
 
 # Não especificar db_name para permitir múltiplos databases
@@ -23,9 +23,11 @@ longpolling_port = 8072
 proxy_mode = True
 
 # ============================================
-# Paths
+# Paths - IMPORTANTE: Incluir l10n-brazil!
 # ============================================
-addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons
+# O caminho /mnt/extra-addons/l10n-brazil é CRÍTICO!
+# Sem ele, os módulos OCA não aparecem em Apps
+addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons/l10n-brazil,/mnt/extra-addons
 data_dir = /var/lib/odoo
 
 # ============================================
@@ -80,4 +82,5 @@ without_demo = all
 # 3. Para produção, altere admin_passwd e db_password
 # 4. workers=0 para desenvolvimento, >0 para produção
 # 5. list_db=False em produção por segurança
+# 6. O caminho /mnt/extra-addons/l10n-brazil é obrigatório para OCA!
 # ============================================
