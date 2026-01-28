@@ -1,23 +1,23 @@
-version: '3.8'
-
 services:
   odoo-pg:
     image: postgres:15-alpine
     container_name: odoobr-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-odoo}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
       POSTGRES_USER: ${POSTGRES_USER:-odoo}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-odoo_secure_password}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - /DATA/AppData/odoobr/postgres:/var/lib/postgresql/data/pgdata
-      - /DATA/AppData/odoobr/postgres-backup:/backup
+      # CORRIGIDO: mapear /postgres/pgdata diretamente
+      - /DATA/AppData/odoobr/postgres/pgdata:/var/lib/postgresql/data/pgdata
+      - /DATA/AppData/odoobr/postgres/backup:/backup
     networks:
       macvlan-dhcp:
         ipv4_address: ${POSTGRES_IP:-10.41.10.147}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-odoo}"]
+      # CORRIGIDO: usar banco 'postgres' que sempre existe
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-odoo} -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,29 +37,26 @@ services:
       odoo-pg:
         condition: service_healthy
     environment:
-      # Odoo Core
       HOST: ${ODOO_DB_HOST:-odoobr-postgres}
       PORT: ${ODOO_DB_PORT:-5432}
       USER: ${POSTGRES_USER:-odoo}
       PASSWORD: ${POSTGRES_PASSWORD:-odoo_secure_password}
-      DB_FILTER: "^${ODOO_DB_NAME:-odoo}.*$"
+      DB_FILTER: ".*"
       ODOO_ADMIN_PASSWORD: ${ODOO_ADMIN_PASSWORD:-admin_secure_password}
-      
-      # Logging
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      
-      # Brasil NFe Configuration
       BRASIL_AMBIENTE: ${BRASIL_AMBIENTE:-homolog}
       BRASIL_NFSE_ENABLED: ${BRASIL_NFSE_ENABLED:-True}
       
     volumes:
-      - /DATA/AppData/odoobr/odoo:/var/lib/odoo
+      # Config e addons externos (editáveis no host)
       - /DATA/AppData/odoobr/config:/etc/odoo
       - /DATA/AppData/odoobr/addons:/mnt/extra-addons
       - /DATA/AppData/odoobr/logs:/var/log/odoo
-      - /DATA/AppData/odoobr/filestore:/var/lib/odoo/.local/share/Odoo/filestore
-      - /DATA/AppData/odoobr/sessions:/var/lib/odoo/.local/share/Odoo/sessions
       - /DATA/AppData/odoobr/certificates:/var/lib/odoo/certificates
+      
+      # CORRIGIDO: Volume nomeado para dados internos (sessions, filestore)
+      # Evita problemas de permissão
+      - odoo-data:/var/lib/odoo
     
     ports:
       - "${ODOO_PORT:-8069}:8069"
@@ -81,7 +78,6 @@ services:
       retries: 3
       start_period: 60s
 
-  # Optional: Adminer for database management
   adminer:
     image: adminer:latest
     container_name: odoobr-adminer
@@ -101,7 +97,6 @@ networks:
     external: true
 
 volumes:
-  postgres-data:
-    driver: local
+  # Volume nomeado gerenciado pelo Docker (permissões automáticas)
   odoo-data:
     driver: local
