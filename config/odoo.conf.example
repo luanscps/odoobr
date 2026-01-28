@@ -1,82 +1,83 @@
 [options]
-# Odoo 18.0 Brasil - Configuration File
-# Copy to odoo.conf and customize for your environment
-
-; Database connection
-admin_passwd = admin_secure_password_change_me
+# ============================================
+# Database Configuration
+# ============================================
 db_host = odoobr-postgres
 db_port = 5432
 db_user = odoo
-db_password = odoo_secure_password_change_me
+db_password = odoo2026
 
-; Database name filter
-db_filter = ^.*$
+# Permite criar/gerenciar databases pela interface web
+list_db = True
 
-; Web Interface
-listen = 0.0.0.0
-xmlrpc_port = 8069
+# Filtro de databases (. * permite qualquer nome)
+db_filter = .*
+
+# Não especificar db_name para permitir múltiplos databases
+
+# ============================================
+# Server Configuration
+# ============================================
+http_port = 8069
 longpolling_port = 8072
+proxy_mode = True
 
-; Data files
-data_dir = /var/lib/odoo/.local/share/Odoo
+# ============================================
+# Paths
+# ============================================
+addons_path = /usr/lib/python3/dist-packages/odoo/addons,/mnt/extra-addons
+data_dir = /var/lib/odoo
 
-; Addons path
-addons_path = /opt/odoo/addons,/mnt/extra-addons
-
-; Logging
+# ============================================
+# Logging
+# ============================================
 log_level = info
-log_file = /var/log/odoo/odoo.log
-logrotate = 100
+log_handler = :INFO
+logfile = /var/log/odoo/odoo.log
 
-; Server settings
-max_cron_threads = 2
-workers = 3
-worker_class = gevent
-worker_connections = 200
-timeout = 120
+# ============================================
+# Security
+# ============================================
+# Master password para gerenciar databases
+admin_passwd = odoo2026
 
-; Memory
-limit_memory_soft = 1677721600  ; 1.6 GB
-limit_memory_hard = 2097152000  ; 2 GB
+# ============================================
+# Performance
+# ============================================
+# Memória máxima por worker (2.5 GB)
+limit_memory_hard = 2684354560
+
+# Memória soft limit (2 GB)
+limit_memory_soft = 2147483648
+
+# Número máximo de requisições por worker
+limit_request = 8192
+
+# Timeout CPU (10 minutos)
 limit_time_cpu = 600
+
+# Timeout real (20 minutos)
 limit_time_real = 1200
 
-; Email
-smtp_server = smtp.gmail.com
-smtp_port = 587
-smtp_ssl = False
-smtp_user = seu_email@gmail.com
-smtp_password = sua_senha_app
+# Número de threads cron
+max_cron_threads = 2
 
-; Sessions
-session_gc_interval = 7200
+# Número de workers (0 = modo desenvolvimento, >0 = produção)
+# Para desenvolvimento use 0, para produção use (CPU cores * 2) + 1
+workers = 0
 
-; Security
-http_auth_timeout = 1209600  ; 14 days
-http_auth_user = admin
-http_auth_password = admin
+# ============================================
+# Brasil
+# ============================================
+# Não carregar dados de demonstração
+without_demo = all
 
-; File upload
-max_upload = 0  ; 0 = unlimited
-
-; Local timezone
-tz = America/Sao_Paulo
-
-; Language
-lang = pt_BR
-
-; Brazilian Localization
-add_modules = base,web
-
-; Enable modules
-load = base,web
-
-; Database updates (run once on startup)
-; Uncomment to auto-update modules at startup
-; --update=base
-
-; Development mode (disable in production!)
-; dev_mode = False
-
-; Offline
-; offline = False
+# ============================================
+# NOTAS:
+# ============================================
+# 1. Copie este arquivo para odoo.conf e ajuste os valores
+# 2. Não commite odoo.conf com senhas reais
+# 3. Para produção, altere admin_passwd e db_password
+# 4. workers=0 para desenvolvimento, >0 para produção
+# 5. list_db=False em produção por segurança
+# ============================================
