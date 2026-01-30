@@ -8,11 +8,12 @@ Soluções para problemas comuns durante instalação e configuração.
 
 1. [Erros PostgreSQL](#erros-postgresql)
 2. [Erros Odoo](#erros-odoo)
-3. [Erros Docker](#erros-docker)
-4. [Erros Python/Pacotes](#erros-pythonpacotes)
-5. [Comandos de Diagnóstico](#comandos-de-diagnóstico)
-6. [Backup e Restore](#backup-e-restore)
-7. [Reinstalação Limpa](#reinstalação-limpa)
+3. [Erros Módulos Brasileiros](#erros-módulos-brasileiros)
+4. [Erros Docker](#erros-docker)
+5. [Erros Python/Pacotes](#erros-pythonpacotes)
+6. [Comandos de Diagnóstico](#comandos-de-diagnóstico)
+7. [Backup e Restore](#backup-e-restore)
+8. [Reinstalação Limpa](#reinstalação-limpa)
 
 ---
 
@@ -189,6 +190,99 @@ docker-compose logs -f odoo
 1. Database não inicializado → Ver solução KeyError acima
 2. Permissões incorretas → Ver solução "directory is not writable"
 3. Pacotes Python faltando → Ver seção "Erros Python/Pacotes"
+
+---
+
+## Erros Módulos Brasileiros
+
+### ❌ **"AttributeError: 'res.company' object has no attribute 'country_enforce_cities'"**
+
+**Sintoma:**
+```javascript
+AttributeError: 'res.company' object has no attribute 'country_enforce_cities'
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/odoo/tools/convert.py", line 1786, in _tag_root
+    f(rec, node)
+  ...
+AttributeError: 'res.company' object has no attribute 'country_enforce_cities'
+```
+
+Ou erro similar relacionado a `parent.tax_framework` em domains XML.
+
+**Causa:** 
+- Bug nos módulos `l10n_br_base` e `l10n_br_fiscal` (issues [#4213](https://github.com/OCA/l10n-brazil/issues/4213) e [#4328](https://github.com/OCA/l10n-brazil/issues/4328))
+- Uso incorreto de `parent.country_enforce_cities` e `parent.tax_framework` nos domains dos views XML
+- Campos do addon nativo `base_address_extended` não tratados corretamente no `res_company.py`
+
+**Solução:**
+
+A correção está na [PR #4344](https://github.com/OCA/l10n-brazil/pull/4344) do OCA, que ainda aguarda merge na branch oficial `18.0`. Enquanto isso, use a branch com a correção:
+
+```bash
+# 1. Acessar diretório l10n-brazil
+cd /DATA/AppData/odoobr/addons/l10n-brazil
+
+# 2. Adicionar remote do fork com a correção (se ainda não adicionou)
+git remote add ednilson https://github.com/EdnilsonMonteiro/l10n-brazil.git
+
+# 3. Fazer fetch da branch com a correção
+git fetch ednilson fix-tax-framework-domain
+
+# 4. Trocar para a branch corrigida
+git checkout -b fix-tax-framework-domain ednilson/fix-tax-framework-domain
+
+# 5. Verificar se está no commit correto
+git log -1 --format="%H"
+# Deve retornar: eec7f132cc9f6b06d8ed0bfdec2aba955dd23295
+
+# 6. Reiniciar o container Odoo
+cd /DATA/AppData/odoobr
+docker-compose restart odoo
+
+# 7. Atualizar os módulos afetados
+docker-compose exec odoo odoo -c /etc/odoo/odoo.conf -d SEU_BANCO -u l10n_br_base,l10n_br_fiscal --stop-after-init
+
+# 8. Reiniciar novamente
+docker-compose restart odoo
+```
+
+**Verificar se a correção funcionou:**
+```bash
+# Testar acesso à interface
+curl -I http://localhost:8069
+
+# Verificar logs (não deve ter mais erros country_enforce_cities)
+docker-compose logs odoo | grep -i "country_enforce_cities"
+
+# Verificar que novos métodos foram criados
+grep -n "_tax_piscofins_domain\|_tax_icms_domain\|_tax_issqn_domain" \
+  /DATA/AppData/odoobr/addons/l10n-brazil/l10n_br_base/models/res_company.py
+```
+
+**O que a correção faz:**
+1. Adiciona tratamento para campos do `base_address_extended` no `res_company.py`
+2. Cria métodos computados (`_tax_piscofins_domain`, `_tax_icms_domain`, `_tax_issqn_domain`) para substituir os domains problemáticos
+3. Remove referências diretas a `parent.tax_framework` e `parent.country_enforce_cities` dos views XML
+
+**Status da correção:**
+- **Commit:** [eec7f132](https://github.com/OCA/l10n-brazil/commit/eec7f132cc9f6b06d8ed0bfdec2aba955dd23295)
+- **PR:** [#4344](https://github.com/OCA/l10n-brazil/pull/4344) (aberta, aguardando revisão)
+- **Autor:** EdnilsonMonteiro
+- **Issues corrigidas:** [#4213](https://github.com/OCA/l10n-brazil/issues/4213), [#4328](https://github.com/OCA/l10n-brazil/issues/4328)
+- **Data:** 10/01/2026
+
+**Quando a PR for mergeada na branch oficial:**
+```bash
+# Voltar para a branch oficial
+cd /DATA/AppData/odoobr/addons/l10n-brazil
+git checkout 18.0
+git pull origin 18.0
+
+# Atualizar módulos
+cd /DATA/AppData/odoobr
+docker-compose exec odoo odoo -c /etc/odoo/odoo.conf -d SEU_BANCO -u l10n_br_base,l10n_br_fiscal --stop-after-init
+docker-compose restart odoo
+```
 
 ---
 
@@ -562,6 +656,7 @@ cp .env.backup .env
 - **Repositório:** https://github.com/luanscps/odoobr
 - **Issues:** https://github.com/luanscps/odoobr/issues
 - **OCA l10n-brazil:** https://github.com/OCA/l10n-brazil
+- **PR #4344 (fix country_enforce_cities):** https://github.com/OCA/l10n-brazil/pull/4344
 - **Documentação Odoo:** https://www.odoo.com/documentation/18.0
 - **Fórum Odoo Brasil:** https://www.odoo.com/pt_BR/forum
 
