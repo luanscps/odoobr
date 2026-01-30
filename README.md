@@ -601,7 +601,7 @@ Este projeto é distribuído sob a licença **AGPL-3.0**.
 - **Módulos OCA (l10n-brazil):** [AGPL-3.0](https://github.com/OCA/l10n-brazil/blob/18.0/LICENSE)
 
 ```
-Copyright (C) 2026 - Luan Santos
+Copyright (C) 2026 - Luan Silva
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
